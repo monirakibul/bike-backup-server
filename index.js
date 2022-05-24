@@ -83,11 +83,29 @@ async function run() {
         const ordersCollection = client.db('BikeBackup').collection('orders')
 
 
+        const verifyAdmin = async (req, res, next) => {
+
+            const currentAdmin = req.decoded.email;
+            const currentAdminData = await userCollection.findOne({ email: currentAdmin });
+            if (currentAdminData.role !== 'admin') {
+                res.status(403).send({ message: 'forbidden' })
+            } else {
+                next()
+            }
+
+        }
+
         // get user 
         app.get('/users', verifyJWT, async (req, res) => {
             const users = await userCollection.find().toArray();
             res.send(users)
         })
+        // get user by email 
+        app.get('/user/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const userData = await userCollection.findOne({ email: email });
+            res.send(userData)
+        });
         // get admin 
         app.get('/admin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
@@ -104,6 +122,21 @@ async function run() {
                 $set: { role: 'admin' },
             };
             const result = await userCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
+        // update user 
+
+        // update order 
+        app.put('/user', verifyJWT, async (req, res) => {
+            const email = req.body.email;
+            const user = req.body;
+            const filter = { email: email };
+            const option = { upsert: true };
+            const updateDoc = {
+                $set: user,
+            };
+            const result = await userCollection.updateOne(filter, updateDoc, option);
             res.send(result);
         });
 
