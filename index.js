@@ -3,7 +3,7 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const jwt = require('jsonwebtoken')
-
+const nodemailer = require("nodemailer");
 
 const app = express()
 const port = process.env.PORT || 5000
@@ -11,6 +11,48 @@ const port = process.env.PORT || 5000
 
 app.use(cors())
 app.use(express.json())
+
+async function sendEmail(product) {
+
+    const { name, email, productName, amount } = product;
+    // create reusable transporter object using the default SMTP transport
+    let transporter = nodemailer.createTransport({
+        host: process.env.HOST,
+        port: 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+            user: process.env.USER, // generated ethereal user
+            pass: process.env.PASS, // generated ethereal password
+        },
+        tls: {
+            // do not fail on invalid certs
+            rejectUnauthorized: false,
+        },
+    });
+
+    var mail = {
+        from: 'sobjano48@gmail.com',
+        to: patient,
+        subject: `We have received your order for ${productName} is pending`,
+        text: `Your payment for ${productName} is  Pending.`,
+        html: `
+          <div>
+            <p> Hello ${name}, </p>
+            <h3>Thank you for your order . </h3>
+            <h3>We have received your order</h3>
+            <p>Please payment amount $${amount}.</p>
+            <h3>Our Address</h3>
+            <p>Andor Killa Bandorban</p>
+            <p>Bangladesh</p>
+            <a href="">unsubscribe</a>
+          </div>
+        `
+    };
+    // send mail with defined transport object
+    let info = await transporter.sendMail(mail);
+    console.log(info)
+
+}
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ekxfy.mongodb.net/?retryWrites=true&w=majority`;
@@ -38,6 +80,7 @@ async function run() {
         const productsCollection = client.db('BikeBackup').collection('products')
         const reviewsCollection = client.db('BikeBackup').collection('reviews')
         const userCollection = client.db('BikeBackup').collection('users')
+        const ordersCollection = client.db('BikeBackup').collection('orders')
 
 
         // gte user 
@@ -78,6 +121,14 @@ async function run() {
             res.send(result)
         })
 
+        // product details 
+        app.get('/purchase/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const product = await productsCollection.findOne(query)
+            res.send(product)
+        })
+
         // get review
         app.get('/reviews', async (req, res) => {
             const query = {}
@@ -102,9 +153,17 @@ async function run() {
                 $set: user,
             };
             const result = await userCollection.updateOne(filter, updateDoc, option);
-            const token = jwt.sign({ email: email }, process.env.TOKEN, { expiresIn: '1h' })
+            const token = jwt.sign({ email: email }, process.env.TOKEN, { expiresIn: '1d' })
 
             res.send({ result, token: token });
+        });
+
+        // place order 
+        app.post('/order', async (req, res) => {
+            const order = req.body;
+            const result = await ordersCollection.insertOne(order);
+            sendEmail(order)
+            return res.send({ success: true, result });
         });
     }
     finally { }
