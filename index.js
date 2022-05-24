@@ -32,7 +32,7 @@ async function sendEmail(product) {
 
     var mail = {
         from: 'sobjano48@gmail.com',
-        to: patient,
+        to: email,
         subject: `We have received your order for ${productName} is pending`,
         text: `Your payment for ${productName} is  Pending.`,
         html: `
@@ -83,7 +83,7 @@ async function run() {
         const ordersCollection = client.db('BikeBackup').collection('orders')
 
 
-        // gte user 
+        // get user 
         app.get('/users', verifyJWT, async (req, res) => {
             const users = await userCollection.find().toArray();
             res.send(users)
@@ -118,6 +118,14 @@ async function run() {
         app.post('/product', verifyJWT, async (req, res) => {
             const product = req.body;
             const result = productsCollection.insertOne(product)
+            res.send(result)
+        })
+
+        // delete product 
+        app.delete('/product/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const result = await productsCollection.deleteOne(query)
             res.send(result)
         })
 
@@ -159,12 +167,49 @@ async function run() {
         });
 
         // place order 
-        app.post('/order', async (req, res) => {
+        app.post('/order', verifyJWT, async (req, res) => {
             const order = req.body;
             const result = await ordersCollection.insertOne(order);
             sendEmail(order)
             return res.send({ success: true, result });
         });
+
+        // get order list 
+        app.get('/order', verifyJWT, async (req, res) => {
+            const email = req.query.email;
+            let query = {}
+            if (email) {
+                query = { email: email }
+            }
+            else {
+                query = {}
+            }
+            const cursor = ordersCollection.find(query)
+            const orders = await cursor.toArray()
+            res.send(orders)
+        });
+
+        // delete order 
+        app.delete('/order/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const result = await ordersCollection.deleteOne(query)
+            res.send(result)
+        })
+
+        // update order 
+        app.put('/order/:id', async (req, res) => {
+            const id = req.params.id;
+            const paid = { status: 'Shipped' };
+            const filter = { _id: ObjectId(id) };
+            const option = { upsert: true };
+            const updateDoc = {
+                $set: paid,
+            };
+            const result = await ordersCollection.updateOne(filter, updateDoc, option);
+            res.send(result);
+        });
+
     }
     finally { }
 }
