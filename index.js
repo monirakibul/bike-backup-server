@@ -40,6 +40,30 @@ async function run() {
         const userCollection = client.db('BikeBackup').collection('users')
 
 
+        // gte user 
+        app.get('/users', verifyJWT, async (req, res) => {
+            const users = await userCollection.find().toArray();
+            res.send(users)
+        })
+        // get admin 
+        app.get('/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const userData = await userCollection.findOne({ email: email });
+            const isAdmin = userData.role === 'admin';
+            res.send({ admin: isAdmin })
+        });
+
+        // make admin 
+        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email };
+            const updateDoc = {
+                $set: { role: 'admin' },
+            };
+            const result = await userCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
         // product 
         app.get('/products', async (req, res) => {
             const query = {}
