@@ -4,6 +4,8 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const jwt = require('jsonwebtoken')
 const nodemailer = require("nodemailer");
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
 
 const app = express()
 const port = process.env.PORT || 5000
@@ -50,7 +52,6 @@ async function sendEmail(product) {
     };
     // send mail with defined transport object
     let info = await transporter.sendMail(mail);
-    console.log(info)
 
 }
 
@@ -115,7 +116,7 @@ async function run() {
         });
 
         // make admin 
-        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+        app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
             const filter = { email: email };
             const updateDoc = {
@@ -148,14 +149,14 @@ async function run() {
             res.send(products)
         });
         // add product 
-        app.post('/product', verifyJWT, async (req, res) => {
+        app.post('/product', verifyJWT, verifyAdmin, async (req, res) => {
             const product = req.body;
             const result = productsCollection.insertOne(product)
             res.send(result)
         })
 
         // delete product 
-        app.delete('/product/:id', verifyJWT, async (req, res) => {
+        app.delete('/product/:id', verifyJWT, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const result = await productsCollection.deleteOne(query)
@@ -207,6 +208,14 @@ async function run() {
             return res.send({ success: true, result });
         });
 
+        // get order by id 
+        app.get('/order/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const result = await ordersCollection.findOne(query);
+            return res.send(result);
+        });
+
         // get order list 
         app.get('/order', verifyJWT, async (req, res) => {
             const email = req.query.email;
@@ -231,18 +240,30 @@ async function run() {
         })
 
         // update order 
-        app.put('/order/:id', async (req, res) => {
+        app.put('/order/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
-            const paid = { status: 'Shipped' };
+            const body = req.body;
             const filter = { _id: ObjectId(id) };
             const option = { upsert: true };
             const updateDoc = {
-                $set: paid,
+                $set: body,
             };
             const result = await ordersCollection.updateOne(filter, updateDoc, option);
             res.send(result);
         });
 
+
+        // payment intent 
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const price = req.body.amount;
+            const amount = parseInt(price) * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({ clientSecret: paymentIntent.client_secret })
+        })
     }
     finally { }
 }
