@@ -267,7 +267,7 @@ async function run() {
 
         // get blogs 
         app.get('/blogs', async (req, res) => {
-            const blogs = await userCollection.find().toArray();
+            const blogs = await blogsCollection.find().toArray();
             res.send(blogs)
         })
     }
