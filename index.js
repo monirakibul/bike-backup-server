@@ -140,6 +140,21 @@ async function run() {
             res.send(result);
         });
 
+        // getting token
+        app.put('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = req.body;
+            const filter = { email: email };
+            const option = { upsert: true };
+            const updateDoc = {
+                $set: user,
+            };
+            const result = await userCollection.updateOne(filter, updateDoc, option);
+            const token = jwt.sign({ email: email }, process.env.TOKEN, { expiresIn: '1d' })
+
+            res.send({ result, token: token });
+        });
+
         // product 
         app.get('/products', async (req, res) => {
             const query = {}
@@ -183,21 +198,6 @@ async function run() {
             const result = reviewsCollection.insertOne(review)
             res.send(result)
         })
-
-        // getting token
-        app.put('/user/:email', async (req, res) => {
-            const email = req.params.email;
-            const user = req.body;
-            const filter = { email: email };
-            const option = { upsert: true };
-            const updateDoc = {
-                $set: user,
-            };
-            const result = await userCollection.updateOne(filter, updateDoc, option);
-            const token = jwt.sign({ email: email }, process.env.TOKEN, { expiresIn: '1d' })
-
-            res.send({ result, token: token });
-        });
 
         // place order 
         app.post('/order', verifyJWT, async (req, res) => {
