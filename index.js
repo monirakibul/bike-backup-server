@@ -82,6 +82,7 @@ async function run() {
         const reviewsCollection = client.db('BikeBackup').collection('reviews')
         const userCollection = client.db('BikeBackup').collection('users')
         const ordersCollection = client.db('BikeBackup').collection('orders')
+        const blogsCollection = client.db('BikeBackup').collection('blogs')
 
 
         const verifyAdmin = async (req, res, next) => {
@@ -262,6 +263,12 @@ async function run() {
                 payment_method_types: ['card']
             });
             res.send({ clientSecret: paymentIntent.client_secret })
+        })
+
+        // get blogs 
+        app.get('/blogs', async (req, res) => {
+            const blogs = await userCollection.find().toArray();
+            res.send(blogs)
         })
     }
     finally { }
